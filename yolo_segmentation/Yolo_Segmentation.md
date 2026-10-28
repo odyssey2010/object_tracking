@@ -1,4 +1,4 @@
-# YOLO Instance Segmentation / OBB 카메라 샘플
+# YOLO Instance Segmentation / OBB / Depth 카메라 샘플
 
 OpenCV로 카메라 프레임을 읽고 Ultralytics YOLO로 여러 객체를 검출하여,
 객체별 픽셀 마스크와 클래스, 신뢰도를 실시간으로 표시합니다.
@@ -10,11 +10,14 @@ OpenCV로 카메라 프레임을 읽고 Ultralytics YOLO로 여러 객체를 검
 
 - [yolo_seg.py](yolo_seg.py): 카메라 입력, 추론, 시각화, 객체별 이미지 저장
 - [yolo_obb.py](yolo_obb.py): 카메라 기반 회전 바운딩 박스(OBB) 검출 및 좌표 저장
+- [yolo_depth.py](yolo_depth.py): YOLO26 Depth / Depth Anything V2 카메라 깊이 추정 비교
+- [run_depth.bat](run_depth.bat): 깊이 추정 실행
 - [run_seg.bat](run_seg.bat) / [run_obb.bat](run_obb.bat): 세그멘테이션 / OBB 실행
 - [models](models): 다운로드한 `.pt` 가중치 보관 폴더 (Git 추적 제외)
-- [requirements.txt](requirements.txt): Ultralytics, OpenCV GUI 패키지, NumPy 의존성
+- [requirements.txt](requirements.txt): Ultralytics, OpenCV GUI, NumPy, Transformers 의존성
 - [test_yolo_seg.py](test_yolo_seg.py): 카메라 없이 실행하는 회귀 테스트
 - [test_yolo_obb.py](test_yolo_obb.py): OBB 좌표 저장 및 카메라 루프 회귀 테스트
+- [test_yolo_depth.py](test_yolo_depth.py): 깊이 추정 변환, 저장 및 카메라 루프 회귀 테스트
 
 ## 설치 (Windows PowerShell)
 
@@ -295,10 +298,62 @@ YOLOE 텍스트 프롬프트는 추가 텍스트 인코더와 의존성 다운�
 추적이 필요하면 `model.track(..., persist=True)`와 `boxes.id`를 활용하는 별도 처리가 필요합니다.
 추적도 가림이나 재등장 상황에서 동일 ID를 항상 보장하지는 않습니다.
 
+## 깊이 추정 (YOLO26 / Depth Anything V2)
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# 원본 | YOLO26 Nano Depth | Depth Anything V2 Small 비교
+.\run_depth.bat
+.\run_depth.bat --camera 1 --device cpu
+
+# 한 모델만 실행
+.\run_depth.bat --backend yolo --imgsz 768
+.\run_depth.bat --backend depth-anything
+
+# Python 직접 실행 / Depth Anything V2 Base로 변경
+.\.venv\Scripts\python.exe .\yolo_depth.py --da-model depth-anything/Depth-Anything-V2-Base-hf
+.\run_depth.bat --help
+```
+
+기본 모델은 `models\yolo26n-depth.pt`와
+`depth-anything/Depth-Anything-V2-Small-hf`입니다. 여기서 Small은
+카메라 샘플의 기본 경량 모델이며, Base 크기 모델과는 다릅니다.
+`--model`로 YOLO 가중치 경로를, `--da-model`로 Hugging Face 모델 ID 또는
+로컬 모델 디렉터리를 바꿀 수 있습니다.
+YOLO의 기본 추론 크기는 768이고, Depth Anything은 해당 이미지 프로세서의
+기본 설정을 사용합니다. 두 모델은 같은 프레임에 순차적으로 추론하므로
+CPU에서는 표시 속도가 낮을 수 있습니다.
+
+최초 실행 시 인터넷 연결이 필요하며 가중치는 자동 다운로드됩니다.
+YOLO는 `models`에, Depth Anything의 Transformers 모델/프로세서는
+`models\huggingface` 캐시에 보관합니다. 후자는 Git 추적에서 제외합니다.
+`--backend yolo`는 Transformers 모델을 로딩하거나 다운로드하지 않습니다.
+
+- **Q / ESC**: 종료, **S**: 현재 원본 프레임 및 활성 모델별 결과 저장
+- 저장 위치: `captures\depth\<타임스탬프>`
+- `frame.png`, `comparison.png`: 원본과 비교 화면
+- `yolo_depth.npy`, `depth_anything_depth.npy`: 원본 해상도 `(H, W)`의
+  정규화하지 않은 float32 추론값 (선택한 모델만 저장)
+- `yolo_color.png`, `depth_anything_color.png`: 표시용 컬러맵
+
+따뜻하고 밝은 색이 가까운 영역을 나타내도록 방향을 맞췄습니다.
+YOLO는 값이 작을수록 가깝고, Depth Anything V2 기본 상대 깊이 모델은
+값이 클수록 가깝습니다. 각 맵을 매 프레임 독립적으로 min/max 정규화하므로
+**동일한 색이 두 모델 또는 다른 프레임에서 동일한 거리를 뜻하지 않습니다.**
+Depth Anything V2 기본 모델은 상대 깊이를 출력하며,
+YOLO26 Depth도 실제 거리로 사용하려면 장면/카메라에 맞는 스케일 보정이나
+미세 조정이 필요합니다. 이 샘플은 값을 보정된 미터 단위로 표시하지 않습니다.
+NPY는 `np.load(path, allow_pickle=False)`로 불러올 수 있습니다.
+
+참고: [Ultralytics Depth](https://docs.ultralytics.com/tasks/depth/),
+[Depth Anything V2 Small 모델 카드](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf).
+다른 크기/체크포인트로 바꿀 때는 해당 모델의 라이선스도 확인하세요.
+
 ## 검증
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest -v test_yolo_seg test_yolo_obb
+.\.venv\Scripts\python.exe -m unittest -v test_yolo_seg test_yolo_obb test_yolo_depth
 ```
 
 회귀 테스트는 임시 폴더와 모의 카메라/모델을 사용합니다.
