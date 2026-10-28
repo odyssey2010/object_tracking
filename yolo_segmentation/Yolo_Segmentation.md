@@ -363,10 +363,37 @@ NPY는 `np.load(path, allow_pickle=False)`로 불러올 수 있습니다.
 [Depth Anything V2 Small 모델 카드](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf).
 다른 크기/체크포인트로 바꿀 때는 해당 모델의 라이선스도 확인하세요.
 
+### Depth Anything V2 전용 샘플 및 FPS
+
+[depth-anything.py](depth-anything.py)는 YOLO 가중치를 로딩하지 않고
+Depth Anything V2 Small만 GPU 0에서 실행합니다.
+기존 비교 샘플의 추론, 컬러맵, 저장 함수를 재사용합니다.
+
+```powershell
+.\run_depth_any.bat
+.\run_depth_any.bat --camera 1
+.\run_depth_any.bat --device cpu
+.\run_depth_any.bat --model depth-anything/Depth-Anything-V2-Base-hf
+.\.venv\Scripts\python.exe .\depth-anything.py --help
+```
+
+원본과 깊이 맵을 나란히 표시하고, 화면에 최근 최대 30프레임의 처리 FPS를
+표시합니다. 콘솔에도 약 1초마다 출력합니다. FPS는 프레임별 FPS의 산술 평균이
+아니라 `프레임 수 / 처리 시간 합계`이며, 카메라 읽기, 전처리, 추론,
+CPU 결과 복사, 시각화, 키 입력 대기와 저장 시간을 포함합니다.
+모델 로딩은 제외하고 첫 추론 워밍업은 포함하므로 초반 수치는 낮을 수 있습니다.
+화면에는 직전 완료 프레임까지의 측정값을 표시합니다.
+GPU 결과를 CPU 배열로 복사한 뒤 시간을 측정하므로 미완료 CUDA 연산이 누락되지 않습니다.
+이는 순수 모델 추론 FPS나 카메라 센서 FPS가 아닙니다.
+
+**S**로 원본, 비교 이미지, 컬러맵 및 원본 float32 깊이를
+`captures\depth_anything\<타임스탬프>`에 저장하고, **Q / ESC**로 종료합니다.
+FPS 문구는 실시간 화면에만 표시하며 저장 이미지에는 포함하지 않습니다.
+
 ## 검증
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest -v test_yolo_seg test_yolo_obb test_yolo_depth
+.\.venv\Scripts\python.exe -m unittest -v test_yolo_seg test_yolo_obb test_yolo_depth test_depth_anything
 ```
 
 회귀 테스트는 임시 폴더와 모의 카메라/모델을 사용합니다.
