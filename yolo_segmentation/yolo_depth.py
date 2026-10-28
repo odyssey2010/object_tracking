@@ -29,7 +29,8 @@ def parse_args() -> argparse.Namespace:
                         help="Depth Anything V2 Hugging Face model ID or local directory")
     parser.add_argument("--imgsz", type=int, default=768,
                         help="YOLO inference size (default: 768; DA uses its processor config)")
-    parser.add_argument("--device", default="", help="Inference device, e.g. cpu or 0 (auto by default)")
+    parser.add_argument("--device", default="0",
+                        help="Inference device (default: 0, CUDA GPU); use cpu for CPU")
     parser.add_argument("--save-dir", type=Path, default=Path("captures") / "depth")
     args = parser.parse_args()
     if args.camera < 0:
@@ -106,6 +107,7 @@ def save_depths(
 
 def run(args: argparse.Namespace) -> None:
     device = select_device(args.device, verbose=False)
+    print(f"Inference device: {device}")
     yolo = YOLO(args.model) if args.backend in ("both", "yolo") else None
     if yolo is not None and yolo.task != "depth":
         raise ValueError(f"Use depth weights, not a {yolo.task!r} model")

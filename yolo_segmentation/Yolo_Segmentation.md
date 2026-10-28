@@ -303,8 +303,14 @@ YOLOE 텍스트 프롬프트는 추가 텍스트 인코더와 의존성 다운�
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
-# 원본 | YOLO26 Nano Depth | Depth Anything V2 Small 비교
+# CUDA 지원 PyTorch 설치 (CUDA 12.8, RTX 5080에서 확인한 조합)
+.\.venv\Scripts\python.exe -m pip install torch==2.11.0 torchvision==0.26.0 --index-url https://download.pytorch.org/whl/cu128
+
+# 원본 | YOLO26 Nano Depth | Depth Anything V2 Small 비교 (기본 GPU 0)
 .\run_depth.bat
+.\run_depth.bat --camera 1 --device 0
+
+# 명시적으로 CPU 실행
 .\run_depth.bat --camera 1 --device cpu
 
 # 한 모델만 실행
@@ -321,6 +327,13 @@ YOLOE 텍스트 프롬프트는 추가 텍스트 인코더와 의존성 다운�
 카메라 샘플의 기본 경량 모델이며, Base 크기 모델과는 다릅니다.
 `--model`로 YOLO 가중치 경로를, `--da-model`로 Hugging Face 모델 ID 또는
 로컬 모델 디렉터리를 바꿀 수 있습니다.
+기본 장치는 **CUDA GPU 0 (`--device 0`)**이며, 두 모델과 Depth Anything의
+입력 텐서가 같은 GPU를 사용합니다. 시작 시 선택된 장치를 출력합니다.
+CUDA를 사용할 수 없으면 CPU로 자동 전환하지 않고 오류를 표시합니다.
+CPU 실행이 필요하면 `--device cpu`를 지정하세요.
+위 CUDA 설치 명령은 CPU 전용 PyTorch를 CUDA 지원 빌드로 교체합니다.
+다른 GPU/드라이버 환경은 [PyTorch 설치 안내](https://pytorch.org/get-started/locally/)에서
+호환되는 빌드를 선택하세요.
 YOLO의 기본 추론 크기는 768이고, Depth Anything은 해당 이미지 프로세서의
 기본 설정을 사용합니다. 두 모델은 같은 프레임에 순차적으로 추론하므로
 CPU에서는 표시 속도가 낮을 수 있습니다.
