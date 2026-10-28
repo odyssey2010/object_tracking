@@ -16,7 +16,11 @@ WINDOW_NAME = "YOLO Segmentation - Q/ESC: quit, S: save"
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--camera", type=int, default=0, help="Camera index (default: 0)")
-    parser.add_argument("--model", default="yolo11n-seg.pt", help="Segmentation weights")
+    parser.add_argument(
+        "--model",
+        default=str(Path(__file__).resolve().parent / "models" / "yolo26n-seg.pt"),
+        help="Segmentation weights (default: models\\yolo26n-seg.pt beside script)",
+    )
     parser.add_argument("--conf", type=float, default=0.5, help="Confidence threshold")
     parser.add_argument("--device", default=None, help="Inference device, e.g. cpu or 0")
     parser.add_argument("--save-dir", type=Path, default=Path("captures"))
