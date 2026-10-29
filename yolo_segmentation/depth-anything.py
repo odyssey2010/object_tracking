@@ -47,6 +47,7 @@ def run(args: argparse.Namespace) -> None:
                 f"Could not open camera {args.camera}. Check the camera index, "
                 "Windows camera permissions, and other apps using the camera."
             )
+        camera.set(cv2.CAP_PROP_FPS, 60)
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(WINDOW_NAME, 1280, 480)
         print("Q / ESC: quit | S: save frame, raw depth NPY, and color map")
@@ -64,8 +65,13 @@ def run(args: argparse.Namespace) -> None:
             }
             preview = make_preview(frame, colors)
             label = "FPS: warming up" if fps is None else f"FPS: {fps:.1f}"
+            resolution = f"Resolution: {frame.shape[1]}x{frame.shape[0]}"
+            cv2.putText(preview, resolution, (10, 35), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
             cv2.putText(preview, label, (10, 65), cv2.FONT_HERSHEY_SIMPLEX,
                         0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(preview, f"Device: {device}", (10, 95),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
             cv2.imshow(WINDOW_NAME, preview)
             key = cv2.waitKey(1) & 0xFF
             if key in (ord("s"), ord("S")):

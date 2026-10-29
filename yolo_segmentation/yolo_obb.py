@@ -1,9 +1,11 @@
 """Run YOLO oriented bounding box detection on OpenCV camera frames."""
 
 import argparse
+from collections import deque
 from datetime import datetime
 import json
 from pathlib import Path
+from time import perf_counter
 
 import cv2
 import numpy as np
@@ -25,7 +27,8 @@ def parse_args() -> argparse.Namespace:
         help="OBB weights (default: models\\yolo26n-obb.pt beside script)",
     )
     parser.add_argument("--conf", type=float, default=0.5, help="Confidence threshold")
-    parser.add_argument("--device", default=None, help="Inference device, e.g. cpu or 0")
+    parser.add_argument("--device", default="0",
+                        help="Inference device (default: 0, CUDA GPU); use cpu for CPU")
     parser.add_argument("--imgsz", type=int, default=1024, help="Inference size (default: 1024)")
     parser.add_argument("--save-dir", type=Path, default=Path("captures") / "obb")
     args = parser.parse_args()
@@ -75,6 +78,8 @@ def run(args: argparse.Namespace) -> None:
     if model.task != "obb":
         raise ValueError(f"Use OBB weights, not a {model.task!r} model")
     camera = cv2.VideoCapture(args.camera)
+    durations: deque[float] = deque(maxlen=30)
+    fps = None
     try:
         if not camera.isOpened():
             raise RuntimeError(
@@ -83,6 +88,7 @@ def run(args: argparse.Namespace) -> None:
             )
         print("Q / ESC: quit | S: save current frame, oriented boxes, and JSON")
         while True:
+            started = perf_counter()
             success, frame = camera.read()
             if not success or frame is None:
                 raise RuntimeError(f"Could not read a frame from camera {args.camera}")
@@ -90,8 +96,19 @@ def run(args: argparse.Namespace) -> None:
                 source=frame, conf=args.conf, device=args.device,
                 imgsz=args.imgsz, verbose=False,
             )[0]
-            cv2.imshow(WINDOW_NAME, result.plot())
+            preview = result.plot()
+            resolution = f"Resolution: {frame.shape[1]}x{frame.shape[0]}"
+            fps_label = "FPS: warming up" if fps is None else f"FPS: {fps:.1f}"
+            cv2.putText(preview, resolution, (10, 35), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(preview, fps_label, (10, 65), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(preview, f"Device: {model.predictor.device}", (10, 95),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.imshow(WINDOW_NAME, preview)
             key = cv2.waitKey(1) & 0xFF
+            durations.append(perf_counter() - started)
+            fps = len(durations) / sum(durations)
             if key in (ord("q"), ord("Q"), 27):
                 break
             if key in (ord("s"), ord("S")):

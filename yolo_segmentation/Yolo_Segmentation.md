@@ -53,6 +53,10 @@ YOLO26 실행을 확인한 Ultralytics 8.4.191을 최소 의존성 버전으로 
 
 Python을 직접 실행하려면 다음 명령을 사용하세요.
 
+`yolo_seg.py`와 `yolo_obb.py`는 기본적으로 CUDA GPU 0을 사용합니다.
+CUDA 지원 PyTorch와 사용 가능한 NVIDIA GPU가 필요하며,
+CPU로 실행하려면 `--device cpu`를 지정하세요.
+
 ```powershell
 # 기본 카메라(index 0), 기본 세그멘테이션 모델
 .\.venv\Scripts\python.exe .\yolo_seg.py

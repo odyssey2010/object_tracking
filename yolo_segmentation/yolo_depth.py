@@ -1,8 +1,10 @@
 """Compare YOLO26 and Depth Anything V2 depth estimation on camera frames."""
 
 import argparse
+from collections import deque
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 
 import cv2
 import numpy as np
@@ -116,6 +118,8 @@ def run(args: argparse.Namespace) -> None:
     ) else None
 
     camera = cv2.VideoCapture(args.camera)
+    durations: deque[float] = deque(maxlen=30)
+    fps = None
     try:
         if not camera.isOpened():
             raise RuntimeError(
@@ -127,6 +131,7 @@ def run(args: argparse.Namespace) -> None:
         print("Q / ESC: quit | S: save frame, raw depth NPY, and color maps")
         print("Warm = near; maps normalized independently per frame, not calibrated meters.")
         while True:
+            started = perf_counter()
             success, frame = camera.read()
             if not success or frame is None:
                 raise RuntimeError(f"Could not read a frame from camera {args.camera}")
@@ -145,8 +150,19 @@ def run(args: argparse.Namespace) -> None:
                 colors["depth_anything"] = colorize_depth(
                     depths["depth_anything"], frame.shape[:2], inverse=True
                 )
-            cv2.imshow(WINDOW_NAME, make_preview(frame, colors))
+            preview = make_preview(frame, colors)
+            resolution = f"Resolution: {frame.shape[1]}x{frame.shape[0]}"
+            fps_label = "FPS: warming up" if fps is None else f"FPS: {fps:.1f}"
+            cv2.putText(preview, resolution, (10, 35), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(preview, fps_label, (10, 65), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.putText(preview, f"Device: {device}", (10, 95),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.imshow(WINDOW_NAME, preview)
             key = cv2.waitKey(1) & 0xFF
+            durations.append(perf_counter() - started)
+            fps = len(durations) / sum(durations)
             if key in (ord("q"), ord("Q"), 27):
                 break
             if key in (ord("s"), ord("S")):
